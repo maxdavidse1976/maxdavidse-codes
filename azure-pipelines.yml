@@ -1,0 +1,30 @@
+variables:
+  - group: "development"
+
+trigger:
+- master
+
+pool:
+  vmImage: 'windows-2019'
+
+name: $(Date:yyyyMMdd)-$(Rev:Rr)
+stages:
+  - stage: Build
+    jobs:
+      - template: Infrastructure/job.template.build.yml
+
+  - stage: Development
+    variables: 
+      - group: 'development'
+    jobs: 
+      - template: Infrastructure/job.template.deployment.yml
+        parameters: 
+          envgroup: 'development'
+
+  - stage: test
+    variables:
+      - group: 'test'
+    jobs:
+      - template: Infrastructure/job.template.deployment.yml
+        parameters:
+          envgroup: 'test'

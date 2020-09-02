@@ -1,0 +1,40 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "prm_object-name": {
+            "type": "string"
+        },
+        "prm_tags": {
+            "type": "object"
+        }
+    },
+    "variables": {
+    },
+    "resources": [
+        {
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "name": "[parameters('prm_object-name')]",
+            "apiVersion": "2020-03-01-preview",
+            "location": "[resourcegroup().location]",
+            "tags": "[parameters('prm_tags')]",
+            "properties": {
+                "sku": {
+                    "name": "pergb2018"
+                },
+                "retentionInDays": 120,
+                "features": {
+                    "searchVersion": 1,
+                    "legacy": 0,
+                    "enableLogAccessUsingOnlyResourcePermissions": true
+                }
+            }
+          }
+       ],
+       "outputs": {
+           "out_workspace_name": {
+                "type": "string",
+                "value": "[parameters('prm_object-name')]"
+            }
+       }
+    }

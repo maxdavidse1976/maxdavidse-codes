@@ -1,0 +1,64 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "prm_config": {
+        "type": "object"
+      }
+    },
+    "variables": {
+      "var_storageaccount-name": "[concat(parameters('prm_config').naming.company, parameters('prm_config').naming.region, 'sa', parameters('prm_config').naming.env, parameters('prm_config').naming.project, parameters('prm_config').naming.sequenceNr)]",
+      "var_storageaccount-secured": "[if(or(equals(parameters('prm_config').naming.env, 'd'), equals(parameters('prm_config').naming.env, 't')), 'Allow', 'Deny')]"
+    },
+    "resources": [
+      {
+        "type": "Microsoft.Storage/storageAccounts",
+        "sku": {
+          "name": "Standard_ZRS",
+          "tier": "Standard"
+        },
+        "kind": "StorageV2",
+        "name": "[variables('var_storageaccount-name')]",
+        "apiVersion": "2019-06-01",
+        "location": "[resourcegroup().location]",
+        "tags": "[parameters('prm_config').workload.tags]",
+        "scale": null,
+        "properties": {
+          "mode": "[parameters('prm_config').deployment.mode]",
+          "networkAcls": {
+            "bypass": "AzureServices",
+            "virtualNetworkRules": [],
+            "ipRules": [],
+            "defaultAction": "[variables('var_storageaccount-secured')]"
+          },
+          "supportsHttpsTrafficOnly": true,
+          "encryption": {
+            "services": {
+              "file": {
+                "enabled": true
+              },
+              "blob": {
+                "enabled": true
+              }
+            },
+            "keySource": "Microsoft.Storage"
+          }
+        },
+        "dependsOn": []
+      }
+    ],
+    "outputs": {
+      "out_storageaccount_name": {
+        "type": "string",
+        "value": "[variables('var_storageaccount-name')]"
+      },
+      "out_storageaccount_key": {
+        "type": "string",
+        "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('var_storageaccount-name')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+      },
+      "out_storageaccount_connectionstring": {
+        "type": "string",
+        "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',variables('var_storageaccount-name'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('var_storageaccount-name')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]"
+      }
+    }
+  }

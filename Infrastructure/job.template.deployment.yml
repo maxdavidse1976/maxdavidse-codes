@@ -1,0 +1,131 @@
+parameters:
+  - name: envgroup
+    type: string
+    default: 'development'
+
+jobs:
+  - deployment: Deploy_Storage_Account_For_Deployment
+    displayName: Deploy CI/CD Storage Account
+    pool: 
+      name: Azure Pipelines
+      vmImage: "Windows-2019"
+    environment: "$(location) - $(environment-name)"
+    strategy:
+      runOnce:
+        deploy: 
+          steps: 
+            - checkout: self
+
+            # Replace tokens in cicd Storage Account param file
+            - task: replacetokens@3
+              displayName: Replace Tokens Storage Account param ARM
+              inputs:
+                rootDirectory: "$(System.DefaultWorkingDirectory)/infrastructure/templates/workloads/cicd"
+                targetFiles: "params.deploy-cicd.json"
+                encoding: "auto"
+                writeBOM: true
+                verbosity: "detailed"
+                actionOnMissing: "fail"
+                keepToken: false
+                tokenPrefix: "#{"
+                tokenSuffix: "}#"
+                enableTelemetry: true
+                
+            # Deploy cicd storage account to dedicated RG
+            - task: AzureResourceManagerTemplateDeployment@3
+              displayName: Deploy Storage Account for artifacts
+              inputs: 
+                deploymentScope: "Resource Group"
+                deploymentMode: "$(deploymode)"
+                deploymentName: 'deploy-cicd-storageaccount'
+                ConnectedServiceName: "$(SubscriptionName)"
+                subscriptionName: "$(SubscriptionId)"
+                action: "Create Or Update Resource Group"
+                resourceGroupName: "rubi-$(region)-rsg-$(environment)-cicd-001"
+                location: "$(location)"
+                templateLocation: Linked artifact
+                csmFile: "$(System.DefaultWorkingDirectory)/infrastructure/templates/storage/templates/rubi-storageaccount.json"
+                csmParametersFile: "$(System.DefaultWorkingDirectory)/infrastructure/templates/workloads/cicd/params.deploy-cicd.json"
+                deploymentOutputs: "cicdstorageoutputs"         
+
+
+  - deployment: Deploy_Infrastructure
+    displayName: Deploy workloads
+    pool: 
+      name: Azure Pipelines
+      vmImage: "windows-2019"
+    environment: "$(location) - $(environment-name)"
+    dependsOn: Deploy_Storage_Account_for_deployment
+    strategy:
+      runOnce:
+        deploy: 
+          steps: 
+            - checkout: self
+
+            # Replace tokens
+            - task: replacetokens@3
+              displayName: Replace tokens in templates
+              inputs:
+                rootDirectory: "$(System.DefaultWorkingDirectory)/infrastructure/templates"
+                targetFiles: |
+                  **/*.json
+                  **/*.xml
+                encoding: "auto"
+                writeBOM: true
+                verbosity: "detailed"
+                actionOnMissing: "fail"
+                keepToken: false
+                tokenPrefix: "#{"
+                tokenSuffix: "}#"
+                enableTelemetry: true
+
+            # Copy Shared ARM files to storage account in shared
+            - task: AzureFileCopy@3
+              displayName: Copy ARM files to CI/CD container
+              inputs:
+                SourcePath: "$(System.DefaultWorkingDirectory)/infrastructure/templates"
+                azureSubscription: "$(SubscriptionName)"
+                Destination: "AzureBlob"
+                storage: "rubi$(region)sa$(environment)cicd001"
+                blobPrefix: "arm-templates"
+                ContainerName: "rubi-$(region)-$(environment)-cicd-rel-$(Build.BuildNumber)"
+                outputStorageUri: "OUTPUT_STORAGE_URI_SHD"
+                outputStorageContainerSasToken: "OUTPUT_STORAGE_SAS_SHD"
+                sasTokenTimeOutInMinutes: "60"
+
+            #
+            # Deploy workloads
+            #
+
+            # Deploy the Shared resourcegroup ARM template
+            - task: AzureResourceManagerTemplateDeployment@3
+              name: DeploySharedRG
+              displayName: Create Shared RG
+              inputs:
+                deploymentScope: "Subscription"
+                deploymentMode: "$(deploymode)"
+                deploymentName: 'rubi-$(region)-rsg-$(environment)-shared-001-cicd'
+                ConnectedServiceName: "$(SubscriptionName)"
+                Subscription: "$(SubscriptionId)"
+                location: "$(location)"
+                templateLocation: "URL of the file"
+                csmFileLink: "$(OUTPUT_STORAGE_URI_SHD)arm-templates/ResourceGroup/Templates/rubi-resourcegroup.json$(OUTPUT_STORAGE_SAS_SHD)"
+                csmParametersFileLink: "$(OUTPUT_STORAGE_URI_SHD)arm-templates/workloads/shared/params.rubideploy.$(region).shared.$(environment).json$(OUTPUT_STORAGE_SAS_SHD)"
+
+            # Deploy the Shared resourcegroup ARM templates
+            - task: AzureResourceManagerTemplateDeployment@3
+              name: DeploySharedResources
+              displayName: Deploy Shared RG resources
+              inputs:
+                deploymentScope: "Resource Group"
+                deploymentMode: "$(deploymode)"
+                deploymentName: 'rubi-$(region)-rsg-$(environment)-shared-001-cicd'
+                ConnectedServiceName: "$(SubscriptionName)"
+                subscriptionName: "$(SubscriptionId)"
+                action: "Create Or Update Resource Group"
+                resourceGroupName: "rubi-$(region)-rsg-$(environment)-shared-001"
+                location: "$(location)"
+                templateLocation: "URL of the file"
+                csmFileLink: "$(OUTPUT_STORAGE_URI_SHD)arm-templates/workloads/shared/deploy-sharedresources.json$(OUTPUT_STORAGE_SAS_SHD)"
+                csmParametersFileLink: "$(OUTPUT_STORAGE_URI_SHD)arm-templates/workloads/shared/params.rubideploy.$(region).shared.$(environment).json$(OUTPUT_STORAGE_SAS_SHD)"
+                overrideParameters: "-prm_container-sastoken $(OUTPUT_STORAGE_SAS_SHD)"          

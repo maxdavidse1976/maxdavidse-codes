@@ -1,0 +1,42 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "prm_config": {
+        "type": "object",
+        "metadata": {
+          "description": "The configuration params from the param file for this worload"
+        }
+      }
+    },
+    "variables": { },
+    "resources": [
+      {
+        "type": "Microsoft.Resources/resourceGroups",
+        "apiVersion": "2019-10-01",
+        "name": "[parameters('prm_config').deployment.resourceGroupName]",
+        "location": "[parameters('prm_config').deployment.region]",
+        "tags": "[parameters('prm_config').workload.tags]",
+        "properties": {
+        }
+      },
+      {
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2019-10-01",
+        "name": "assigncontributor",
+        "resourceGroup": "[parameters('prm_config').deployment.resourceGroupName]",
+        "dependsOn": [
+          "[parameters('prm_config').deployment.resourceGroupName]"
+        ],
+        "properties": {
+          "mode": "Incremental",
+          "template": {
+            "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+            "contentVersion": "1.0.0.0",
+            "resources": [
+            ]
+          }
+        }
+      }
+    ]
+  }

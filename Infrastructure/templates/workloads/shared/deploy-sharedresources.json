@@ -1,0 +1,120 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "prm_config": {
+        "type": "object"
+      },
+      "prm_container-sastoken": {
+        "type": "string"
+      }
+    },
+    "variables": {
+    },
+    // getResourceName will give the resource name like rubi-we-sb-d-shared-001
+    "functions": [
+      {
+        "namespace": "rubiTools",
+        "members": {
+          "getResourceName": {
+            "parameters": [
+              {
+                "name": "prm_naming-component",
+                "type": "object"
+              },
+              {
+                "name": "prm_resourceType",
+                "type": "string"
+              },
+              {
+                "name": "prm_projectName",
+                "type": "string"
+              },
+              {
+                "name": "prm_sequenceNr",
+                "type": "string"
+              }
+            ],
+            "output": {
+              "type": "string",
+              "value": "[concat(parameters('prm_naming-component').company, '-', parameters('prm_naming-component').region, '-',  parameters('prm_resourceType'), '-', parameters('prm_naming-component').env, '-',parameters('prm_projectName'), '-', parameters('prm_sequenceNr'))]"
+            }
+          }
+        }
+      }
+    ],
+    "resources": [
+       {
+        "name": "ApplicationInsightsDeployment",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2019-05-01",
+        "dependsOn": [],
+        "properties": {
+          "mode": "[parameters('prm_config').deployment.mode]",
+          "templateLink": {
+            "uri": "[concat(uri(deployment().properties.templateLink.uri, '../../ApplicationInsights/Templates/rubi-shared-applicationinsights.json'), parameters('prm_container-sastoken'))]",
+            "contentVersion": "1.0.0.0"
+          },
+          "parameters": {
+            "prm_object-name": {
+              "value": "[rubiTools.getResourceName(parameters('prm_config').naming, 'appi', 'shared', '001')]"
+            },
+            "prm_tags": {
+              "value": "[parameters('prm_config').workload.tags]"
+            }
+          }
+        }
+      },
+      {
+        "name": "ServiceBusDeployment",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2019-05-01",
+        "dependsOn": [],
+        "properties": {
+          "mode": "[parameters('prm_config').deployment.mode]",
+          "templateLink": {
+            "uri": "[concat(uri(deployment().properties.templateLink.uri, '../../ServiceBus/rubi-shared-servicebus.json'), parameters('prm_container-sastoken'))]",
+            "contentVersion": "1.0.0.0"
+          },
+          "parameters": {
+            "prm_object-name": {
+              "value": "[rubiTools.getResourceName(parameters('prm_config').naming, 'sb', 'shared', '001')]"
+            },
+            "prm_tags": {
+              "value": "[parameters('prm_config').workload.tags]"
+            },
+            "prm_container-sastoken": {
+              "value": "[parameters('prm_container-sastoken')]"
+            }
+          }
+        }
+      },
+      {
+        "name": "LogAnalyticsDeployment",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2019-05-01",
+        "dependsOn": [],
+        "properties": {
+          "mode": "[parameters('prm_config').deployment.mode]",
+          "templateLink": {
+            "uri": "[concat(uri(deployment().properties.templateLink.uri, '../../LogAnalytics/rubi-shared-loganalytics.json'), parameters('prm_container-sastoken'))]",
+            "contentVersion": "1.0.0.0"
+          },
+          "parameters": {
+            "prm_container-sastoken": {
+              "value": "[parameters('prm_container-sastoken')]"
+            },
+            "prm_object-name": {
+              "value": "[rubiTools.getResourceName(parameters('prm_config').naming, 'log', 'shared', '002')]"
+            },
+            "prm_tags": {
+              "value": "[parameters('prm_config').workload.tags]"
+            },
+            "prm_deploy-mode": {
+              "value": "[parameters('prm_config').deployment.mode]"
+            }
+          }
+        }
+      }
+    ]
+  }

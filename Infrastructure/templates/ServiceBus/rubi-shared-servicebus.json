@@ -1,0 +1,128 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "prm_object-name": {
+          "type": "string"
+        },
+        "prm_tags": {
+            "type": "object"
+        },
+        "prm_container-sastoken": {
+          "type": "string"
+        }
+    },
+    "variables": {
+        "var_servicebus_namespace": "[parameters('prm_object-name')]",
+        "var_servicebus-key-name-rmsak": "RootManageSharedAccessKey",
+        "var_servicebus-key-name-sak": "SharedAccessKey",
+        "var_authRuleResourceId-rmsak": "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('prm_object-name'), variables('var_servicebus-key-name-rmsak'))]",
+        "var_authRuleResourceId-sak": "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('prm_object-name'), variables('var_servicebus-key-name-sak'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ServiceBus/namespaces",
+            "apiVersion": "2018-01-01-preview",
+            "name": "[parameters('prm_object-name')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('prm_tags')]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Standard"
+            },
+            "properties": {
+                "zoneRedundant": false
+            }
+        },
+      {
+        "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+        "apiVersion": "2017-04-01",
+        "name": "[concat(parameters('prm_object-name'), '/', variables('var_servicebus-key-name-rmsak'))]",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+          "[resourceId('Microsoft.ServiceBus/namespaces', parameters('prm_object-name'))]"
+        ],
+        "properties": {
+          "rights": [
+            "Listen",
+            "Manage",
+            "Send"
+          ]
+        }
+      },
+      {
+        "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+        "apiVersion": "2017-04-01",
+        "name": "[concat(parameters('prm_object-name'), '/', variables('var_servicebus-key-name-sak'))]",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+          "[resourceId('Microsoft.ServiceBus/namespaces', parameters('prm_object-name'))]"
+        ],
+        "properties": {
+          "rights": [
+            "Listen",
+            "Manage",
+            "Send"
+          ]
+        }
+      },
+      {
+        "name": "ServiceBusTopicRubiInDeployment",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2019-05-01",
+        "dependsOn": [
+          "[resourceId('Microsoft.ServiceBus/namespaces', parameters('prm_object-name'))]"
+        ],
+        "properties": {
+          "mode": "Incremental",
+          "templateLink": {
+            "uri": "[concat(uri(deployment().properties.templateLink.uri, 'Topics/rubi/t-rubi-in.json'), parameters('prm_container-sastoken'))]",
+            "contentVersion": "1.0.0.0"
+          },
+          "parameters": {
+            "prm_servicebus_namespace": {
+                "value": "[parameters('prm_object-name')]"
+            }
+          }
+        }
+      },
+      {
+        "name": "ServiceBusTopicRubiOutDeployment",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2019-05-01",
+        "dependsOn": [
+          "[resourceId('Microsoft.ServiceBus/namespaces', parameters('prm_object-name'))]"
+        ],
+        "properties": {
+          "mode": "Incremental",
+          "templateLink": {
+            "uri": "[concat(uri(deployment().properties.templateLink.uri, 'Topics/rubi/t-rubi-out.json'), parameters('prm_container-sastoken'))]",
+            "contentVersion": "1.0.0.0"
+          },
+          "parameters": {
+            "prm_servicebus_namespace": {
+                "value": "[parameters('prm_object-name')]"
+            }
+          }
+        }
+      }
+  ],
+  "outputs": {
+      "out_servicebus_connectionstring": {
+          "type": "string",
+          "value": "[listkeys(variables('var_authRuleResourceId-rmsak'), '2017-04-01').primaryConnectionString]"
+      },
+      "out_servicebus_key_sak": {
+          "type": "string",
+          "value": "[listkeys(variables('var_authRuleResourceId-sak'), '2017-04-01').primaryKey]"
+      },
+      "out_servicebus_key_name_sak": {
+          "type": "string",
+          "value": "[listkeys(variables('var_authRuleResourceId-sak'), '2017-04-01').keyName]"
+      },
+      "out_servicebus_namespace": {
+          "type": "string",
+          "value": "[variables('var_servicebus_namespace')]"
+      }
+  }
+}

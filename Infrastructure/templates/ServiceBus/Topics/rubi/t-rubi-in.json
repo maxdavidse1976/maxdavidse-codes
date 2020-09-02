@@ -1,0 +1,81 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "prm_servicebus_namespace": {
+            "type": "string",
+            "defaultValue": "rubi-we-sb-d-shared-001",
+            "metadata": {
+                "description": "The namespace to add to, defaults to rubi-we-sb-d-shared-001"
+            }         
+        }
+    },
+    "variables": {
+        "topicName": "t-rubi-out",
+        "topicPath": "[concat(parameters('prm_servicebus_namespace'), '/', variables('topicName'))]",
+        "subName_rubiIn": "s-rubi-in",
+        "topicName_rubiIn": "t-rubi-in"
+    },
+    "resources": [    
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics",
+            "apiVersion": "2017-04-01",
+            "name": "[variables('topicPath')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "defaultMessageTimeToLive": "P14D",
+                "maxSizeInMegabytes": 1024,
+                "requiresDuplicateDetection": false,
+                "duplicateDetectionHistoryTimeWindow": "PT10M",
+                "enableBatchedOperations": true,
+                "status": "Active",
+                "supportOrdering": true,
+                "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S",
+                "enablePartitioning": false,
+                "enableExpress": false
+            }
+        },
+        //
+        // Subscription s-rubi-in (auto forward --> t-rubi-in)
+        //
+        {
+          "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+          "apiVersion": "2017-04-01",
+          "name": "[concat(variables('topicPath'), '/', variables('subName_rubiIn'))]",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+              "[resourceId('Microsoft.ServiceBus/namespaces/topics', parameters('prm_servicebus_namespace'), variables('topicName'))]"
+          ],
+          "properties": {
+              "lockDuration": "PT30S",
+              "requiresSession": false,
+              "defaultMessageTimeToLive": "P14D",
+              "deadLetteringOnMessageExpiration": false,
+              "deadLetteringOnFilterEvaluationExceptions": false,
+              "maxDeliveryCount": 1,
+              "status": "Active",
+              "enableBatchedOperations": true,
+              "autoDeleteOnIdle": "P14D",
+              "forwardTo": "[variables('topicName_rubiIn')]"
+          }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules",
+            "apiVersion": "2017-04-01",
+            "name": "[concat(variables('topicPath'), '/', variables('subName_rubiIn'), '/', variables('topicName_rubiIn'))]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', parameters('prm_servicebus_namespace'), variables('topicName'), variables('subName_rubiIn'))]",
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', parameters('prm_servicebus_namespace'), variables('topicName'))]"
+            ],
+            "properties": {
+                "action": {},
+                "filterType": "CorrelationFilter",
+                "correlationFilter": {
+                    "to": "[variables('topicName_rubiIn')]",
+                    "properties": {}
+                }
+            }
+        }
+    ]
+}

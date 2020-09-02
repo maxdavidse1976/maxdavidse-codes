@@ -1,0 +1,13 @@
+jobs:
+  - job: Build_Template_Artifact
+    displayName: Building the pipeline artifact
+    pool:
+      name: Azure Pipelines
+      vmImage: "windows-2019"
+    steps:
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish pipeline artifacts"
+        inputs:
+          targetPath: '$(Pipeline.Workspace)'
+          artifact: 'pipeline'
+          publishLocation: 'pipeline'

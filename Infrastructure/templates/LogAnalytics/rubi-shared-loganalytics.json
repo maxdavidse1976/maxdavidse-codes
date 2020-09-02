@@ -1,0 +1,50 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "prm_container-sastoken": {
+            "type": "string"
+        },
+        "prm_object-name": {
+            "type": "string"
+        },
+        "prm_tags": {
+            "type": "object"
+        },
+        "prm_deploy-mode": {
+            "type": "string",
+            "allowedValues": [
+                "Incremental",
+                "Complete"
+            ],
+            "defaultValue": "Incremental",
+            "metadata": {
+                "description": "The deployment mode: Incremental keeps everything intact, while Complete replaces everything."
+            }
+        }
+    },
+    "resources": [
+        {
+            "comments": "Deploys the log analytics workspace to the shared resource",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "LogAnalyticsWorkspace",
+
+            "properties": {
+                "mode": "[parameters('prm_deploy-mode')]",
+                "templateLink": {
+                    "uri": "[concat(uri(deployment().properties.templateLink.uri, 'Templates/rubi-loganalyticsworkspace.json'), parameters('prm_container-sastoken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "prm_object-name": {
+                        "value": "[parameters('prm_object-name')]"
+                    },
+                    "prm_tags": {
+                        "value": "[parameters('prm_tags')]"
+                    }
+                }
+            }
+        }
+    ]
+}

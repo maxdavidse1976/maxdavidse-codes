@@ -1,0 +1,32 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "prm_config":{
+        "value": {
+  
+          "deployment": {
+            "mode": "#{deploymode}#",
+            "region": "westeurope"
+          },
+  
+          "naming": {
+            "company": "rubi",
+            "region": "#{region}#",
+            "env": "#{environment}#",
+            "resourceTypeName": null,
+            "project": "cicd",
+            "sequenceNr": "001"
+          },
+  
+          "workload": {
+            "tags":{
+              "Environment" : "#{environment}#",
+              "Cost Center": "TBD",
+              "Note": "Only used for pipeline artifacts"
+            }
+          }
+        }
+      }
+    }
+  }
